@@ -205,8 +205,8 @@ public:
 	triangulate_compare( std::vector<double> &convexity ) : m_convexity(convexity) {}
 	
 	bool operator()( const int &a, const int &b ){
-		//int ca = int(m_convexity[a]*1e10)%43492971;
-		//int cb = int(m_convexity[b]*1e10)%43492971;
+		//int ca = int(m_convexity[a]*12847563.0)%4341;
+		//int cb = int(m_convexity[b]*12847563.0)%4341;
 		double ca = m_convexity[a];
 		double cb = m_convexity[b];
 		return ca < cb || (ca == cb && a < b );
@@ -341,6 +341,7 @@ bool triangulate_simple_polygon_set( const std::vector<double> &coords, const in
 }
 
 bool triangulate_simple_polygon( const std::vector<double> &coords, const int *facet, std::vector<int> &tris ){
-	return triangulate_simple_polygon_set( coords, facet, tris );
+	//return triangulate_simple_polygon_set( coords, facet, tris );
+    return triangulate_simple_polygon_naive( coords, facet, tris );
 }
 

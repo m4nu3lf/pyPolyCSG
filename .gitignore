@@ -1,3 +1,6 @@
 *.obj
-*build/
 *.directory
+.DS_Store
+*.dylib
+third_party/carve
+build
