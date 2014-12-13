@@ -20,7 +20,7 @@ class polyhedron {
 private:
 	std::vector<double>		m_coords;
 	std::vector<int>		m_faces;
-    std::vector<int>        m_faces_start;
+        std::vector<int>                m_faces_start;
 public:
 	/**
 	 @brief default constructor
@@ -158,13 +158,15 @@ public:
 	
 	// TODO: implement number of segments and twist for extrusion
 	/**
-	 @brief extrudes a profile, (defined in the x-y plane), in the z direction
-	 @param[in] coords coordinates of the profile vertices, packed as [x,y,x,y,...,x,y]
+     @brief extrudes a profile, in the x,y,z direction.
+     @param[in] coords coordinates of the profile vertices, packed as [x,y,z,x,y,z,...,x,y,z]
 	 @param[in] lines packed array of point indices making up the profile line-segments, [A,B,...]
-	 @param[in] distance distance to extrude the profile
+	 @param[in] x distance to extrude the profile on x direction
+     @param[in] y distance to extrude the profile on y direction
+     @param[in] z distance to extrude the profile on z direction
 	 @return true on success, false otherwise
 	*/
-	bool initialize_create_extrusion( const std::vector<double> &coords, const std::vector<int> &lines, const double distance );
+	bool initialize_create_extrusion( const std::vector<double> &coords, const std::vector<int> &lines, const double x, const double y, const double z );
 	
 	/**
 	 @brief generates a surface of revolution (SOR )from the input 2D profile by revolving a contour around the x-axis
@@ -344,7 +346,7 @@ polyhedron torus( const double radius_major, const double radius_minor, const bo
  @param[in] distance the distance to extrude the contour
  @return true if successful, false otherwise
  */
-polyhedron extrusion( const std::vector<double> &coords, const std::vector<int> &lines, const double distance );
+polyhedron extrusion( const std::vector<double> &coords, const std::vector<int> &lines, const double x, const double y, const double z );
 
 /**
  @brief generates a surface of revolution (SOR )from the input 2D profile by revolving a contour around the x-axis

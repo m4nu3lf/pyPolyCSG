@@ -137,12 +137,24 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     def initializeGL(self):
         self.qglClearColor(self.trolltechPurple.darker())
-        self.object = self.makeObject()
         GL.glShadeModel(GL.GL_FLAT)
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glEnable(GL.GL_CULL_FACE) 
         
     def paintGL(self):
+        # Create a slab.
+        self.polyBlock = csg.box(6,2,4,True)
+        # Punch a hole in it.
+        cyl = csg.cylinder(1,4,True)
+        self.polyBlock -= cyl
+        # Retrieve the vertices and triangles from the
+        # pyPolyCSG mesh, and condition the numpy arrays
+        # for rendering in the paingGL() callback.
+        vertices = self.polyBlock.get_vertices()
+        triangles = self.polyBlock.get_triangles().astype('uint16').flatten()
+        # Make up some colors for the vertices.
+        colors = numpy.array(len(vertices) * [[.7, .7, .7, .999]])
+        
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         GL.glLoadIdentity()
         GL.glTranslated(0.0, 0.0, -10.0)
@@ -151,7 +163,6 @@ class GLWidget(QtOpenGL.QGLWidget):
         GL.glRotated(self.zRot / 16.0, 0.0, 0.0, 1.0)
         # DBC: Modifications from hellogl.py below this line.
         scalefactor = .1
-        vertices, triangles, colors = self.object
         GL.glEnableClientState(GL.GL_VERTEX_ARRAY)
         GL.glScaled(scalefactor, scalefactor, scalefactor)
         GL.glEnableClientState(GL.GL_COLOR_ARRAY);
@@ -182,23 +193,6 @@ class GLWidget(QtOpenGL.QGLWidget):
             self.setZRotation(self.zRot + 8 * dx)
 
         self.lastPos = QtCore.QPoint(event.pos())
-
-    # DBC: makeObject gutted and replaced.
-    def makeObject(self):
-        # Create a slab.
-        self.polyBlock = csg.box(6,2,4,True)
-        # Punch a hole in it.
-        cyl = csg.cylinder(1,4,True)
-        self.polyBlock -= cyl
-        # Retrieve the vertices and triangles from the
-        # pyPolyCSG mesh, and condition the numpy arrays
-        # for rendering in the paingGL() callback.
-        vertices = self.polyBlock.get_vertices()
-        triangles = self.polyBlock.get_triangles().astype('uint16').flatten()
-        # Make up some colors for the vertices.
-        colors = numpy.array(len(vertices) * [[.7, .7, .7, .999]])
-        # Return a tuple of (vertices, triangles, colors) 
-        return (vertices,triangles, colors)
         
     def normalizeAngle(self, angle):
         while angle < 0:

@@ -7,17 +7,18 @@ using namespace boost::python;
 
 #include"polyhedron.h"
 
-polyhedron py_extrusion( const boost::python::list &coords, const double distance ){
+polyhedron py_extrusion( const boost::python::list &coords, const double x, const double y, const double z){
     std::vector<double> tcoords;
     std::vector<int>    tlines;
     
     for( int i=0; i<boost::python::len(coords); i++ ){
         tcoords.push_back( boost::python::extract<double>( coords[i][0] ) );
         tcoords.push_back( boost::python::extract<double>( coords[i][1] ) );
+        tcoords.push_back( boost::python::extract<double>( coords[i][2] ) );
         tlines.push_back( i );
     }
     
-    return extrusion( tcoords, tlines, distance );
+    return extrusion( tcoords, tlines, x, y, z);
 }
 
 polyhedron py_surface_of_revolution( const boost::python::list &coords, const double angle=360, const int segments=20 ){
@@ -38,7 +39,7 @@ BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS( make_box_overloads,			initialize_create_
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS( make_cylinder_overloads,    initialize_create_cylinder,  2, 4 );
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS( make_cone_overloads,		initialize_create_cone,      2, 4 );
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS( make_torus_overloads,		initialize_create_torus,     2, 5 );
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS( make_extrusion_overloads,   initialize_create_extrusion, 3, 3 );
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS( make_extrusion_overloads,   initialize_create_extrusion, 5, 5 );
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS( make_surface_of_revolution_overloads,   initialize_create_surface_of_revolution, 2, 4 );
 
 
@@ -47,7 +48,7 @@ BOOST_PYTHON_FUNCTION_OVERLOADS( box_overloads,      box,      3, 4 );
 BOOST_PYTHON_FUNCTION_OVERLOADS( cylinder_overloads, cylinder, 2, 4 );
 BOOST_PYTHON_FUNCTION_OVERLOADS( cone_overloads,     cone,     2, 4 );
 BOOST_PYTHON_FUNCTION_OVERLOADS( torus_overloads,    torus,    2, 5 );
-//BOOST_PYTHON_FUNCTION_OVERLOADS( extrusion_overloads,py_extrusion, 2, 2 );  // JG - Get compile errors with this, 'extrusion_overloads does not define a value', strictly not needed since it specifies that all parameters must be specified
+BOOST_PYTHON_FUNCTION_OVERLOADS( extrusion_overloads,py_extrusion, 4, 4 );  // JG - Get compile errors with this, 'extrusion_overloads does not define a value', strictly not needed since it specifies that all parameters must be specified
 BOOST_PYTHON_FUNCTION_OVERLOADS( sor_overloads,      py_surface_of_revolution, 1, 3 );
 
 BOOST_PYTHON_MODULE(pyPolyCSG){
@@ -59,7 +60,7 @@ BOOST_PYTHON_MODULE(pyPolyCSG){
 	def( "cylinder",	     cylinder,  cylinder_overloads() );
 	def( "cone",		     cone,      cone_overloads() );
 	def( "torus",		     torus,     torus_overloads() );
-    //def( "extrusion",        py_extrusion, extrusion_overloads );
+    def( "extrusion",        py_extrusion, extrusion_overloads() );
 	def( "surface_of_revolution", py_surface_of_revolution, sor_overloads() );
     
 	class_<polyhedron>("polyhedron")
@@ -89,7 +90,7 @@ BOOST_PYTHON_MODULE(pyPolyCSG){
 	.def( self + polyhedron() )
 	.def( self - polyhedron() )
 	.def( self * polyhedron() )
-    // TODO: JG 2013/03/03 need to add symmetric difference operator '^' in C++ API....
+    .def( self ^ polyhedron() )
 	;
     
     boost::python::class_<std::vector<double> >("DoubleVec").def(boost::python::vector_indexing_suite<std::vector<double> >());

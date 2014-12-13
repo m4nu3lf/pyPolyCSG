@@ -7,50 +7,59 @@
 #include"polyhedron_unary_op.h"
 #include"polyhedron_binary_op.h"
 #include"triangulate.h"
+#include"scopend_gil_released.h"
 
 polyhedron load_mesh_file( const char *filename ){
-	polyhedron p;
+    ScopedGILRelease scoped;
+    polyhedron p;
 	p.initialize_load_from_file( filename );
 	return p;
 }
 
 polyhedron sphere( const double radius, const bool is_centered, const int hsegments, const int vsegments ){
+    ScopedGILRelease scoped;
 	polyhedron p;
 	p.initialize_create_sphere( radius, is_centered, hsegments, vsegments );
 	return p;
 }
 
 polyhedron box( const double size_x, const double size_y, const double size_z, const bool is_centered ){
+    ScopedGILRelease scoped;
 	polyhedron p;
 	p.initialize_create_box( size_x, size_y, size_z, is_centered );
 	return p;
 }
 
 polyhedron cylinder( const double radius, const double height, const bool is_centered, const int segments ){
+    ScopedGILRelease scoped;
 	polyhedron p;
 	p.initialize_create_cylinder( radius, height, is_centered, segments );
 	return p;
 }
 
 polyhedron cone( const double radius, const double height, const bool is_centered, const int segments ){
+    ScopedGILRelease scoped;
 	polyhedron p;
 	p.initialize_create_cone( radius, height, is_centered, segments );
 	return p;
 }
 
 polyhedron torus( const double radius_major, const double radius_minor, const bool is_centered, const int major_segments, const int minor_segments ){
-	polyhedron p;
+    ScopedGILRelease scoped;
+    polyhedron p;
 	p.initialize_create_torus( radius_major, radius_minor, is_centered, major_segments, minor_segments );
 	return p;
 }
 
-polyhedron extrusion( const std::vector<double> &coords, const std::vector<int> &lines, const double distance ){
+polyhedron extrusion( const std::vector<double> &coords, const std::vector<int> &lines, const double x, const double y, const double z ){
+    ScopedGILRelease scoped;
     polyhedron p;
-    p.initialize_create_extrusion( coords, lines, distance );
+    p.initialize_create_extrusion( coords, lines, x, y, z );
     return p;
 }
 
 polyhedron surface_of_revolution( const std::vector<double> &coords, const std::vector<int> &lines, const double angle, const int segments ){
+    ScopedGILRelease scoped;
     polyhedron p;
     p.initialize_create_surface_of_revolution( coords, lines, angle, segments );
     return p;
@@ -59,12 +68,14 @@ polyhedron surface_of_revolution( const std::vector<double> &coords, const std::
 
 
 polyhedron::polyhedron(){
+    ScopedGILRelease scoped;
 	m_coords.clear();
 	m_faces.clear();
     m_faces_start.clear();
 }
 
 polyhedron::polyhedron( const polyhedron &in ){
+    ScopedGILRelease scoped;
 	m_coords = in.m_coords;
 	m_faces  = in.m_faces;
     m_faces_start = in.m_faces_start;
@@ -348,18 +359,18 @@ bool polyhedron::initialize_create_torus( const double radius_major, const doubl
 	return initialize_load_from_mesh( coords, faces );
 }
 
-bool polyhedron::initialize_create_extrusion( const std::vector<double> &coords, const std::vector<int> &lines, const double distance ){
+bool polyhedron::initialize_create_extrusion( const std::vector<double> &coords, const std::vector<int> &lines, const double x, const double y, const double z ){
 	std::vector<double> tcoords;
 	std::vector<int>    tfaces;
-	for( int i=0; i<(int)coords.size(); i+=2 ){
+    for( int i=0; i<(int)coords.size(); i+=3 ){
 		tcoords.push_back( coords[i+0] );
 		tcoords.push_back( coords[i+1] );
-		tcoords.push_back( 0.0 );
+                tcoords.push_back( coords[i+2] );
 	}
-	for( int i=0; i<(int)coords.size(); i+=2 ){
-		tcoords.push_back( coords[i+0] );
-		tcoords.push_back( coords[i+1] );
-		tcoords.push_back( distance );
+	for( int i=0; i<(int)coords.size(); i+=3 ){
+                tcoords.push_back( coords[i+0] + x);
+                tcoords.push_back( coords[i+1] + y);
+                tcoords.push_back( coords[i+2] + z);
 	}
 	
 	tfaces.push_back( lines.size() );
@@ -368,15 +379,15 @@ bool polyhedron::initialize_create_extrusion( const std::vector<double> &coords,
 	}
 	tfaces.push_back( lines.size() );
 	for( int i=0; i<(int)lines.size(); i++ ){
-		tfaces.push_back( lines[i]+coords.size()/2 );
+        tfaces.push_back( lines[i]+coords.size()/3 );
 	}
 	
 	for( int i=0; i<(int)lines.size(); i++ ){
 		tfaces.push_back( 4 );
 		tfaces.push_back( lines[i] );
 		tfaces.push_back( lines[(i+1)%lines.size()] );
-		tfaces.push_back( lines[(i+1)%lines.size()]+coords.size()/2 );
-		tfaces.push_back( lines[i]+coords.size()/2 );
+        tfaces.push_back( lines[(i+1)%lines.size()]+coords.size()/3 );
+        tfaces.push_back( lines[i]+coords.size()/3 );
 	}
 	
 	return initialize_load_from_mesh( tcoords, tfaces );
@@ -601,6 +612,7 @@ polyhedron polyhedron::mult_matrix_4(
                         double yx, double yy, double yz, double ya,
                         double zx, double zy, double zz, double za,
                         double ax, double ay, double az, double aa ) const {
+    ScopedGILRelease scoped;
     polyhedron_multmatrix4 op( xx, xy, xz, xa,
                                yx, yy, yz, ya,
                                zx, zy, zz, za,
@@ -611,8 +623,8 @@ polyhedron polyhedron::mult_matrix_4(
 
 polyhedron polyhedron::py_mult_matrix_4( const boost::python::list &m ) const {
     double a[16];
-    if( boost::python::len(m) != 16 )
-        throw "expected 16 matrix coefficients";
+    if( boost::python::len(m) != 16 ){
+        throw "expected 16 matrix coefficients";}
     for( int i=0; i<16; i++ ){
         a[i] = boost::python::extract<double>( m[i] );
     }
@@ -623,6 +635,7 @@ polyhedron polyhedron::mult_matrix_3(
         double xx,double xy,double xz,
         double yx,double yy,double yz,
         double zx,double zy,double zz ) const {
+    ScopedGILRelease scoped;
     polyhedron_multmatrix3 op( xx, xy, xz,
                                yx, yy, yz,
                                zx, zy, zz );
@@ -642,21 +655,25 @@ polyhedron polyhedron::py_mult_matrix_3( const boost::python::list &m ) const {
 
 
 polyhedron polyhedron::operator+( const polyhedron &in ) const {
+    ScopedGILRelease scoped;
 	polyhedron_union op;
 	return op( *this, in );
 }
 
 polyhedron polyhedron::operator-( const polyhedron &in ) const {
+    ScopedGILRelease scoped;
 	polyhedron_difference op;
 	return op( *this, in );
 }
 
 polyhedron polyhedron::operator^( const polyhedron &in ) const {
+    ScopedGILRelease scoped;
 	polyhedron_symmetric_difference op;
 	return op( *this, in );
 }
 
 polyhedron polyhedron::operator*( const polyhedron &in ) const {
+    ScopedGILRelease scoped;
 	polyhedron_intersection op;
 	return op( *this, in );
 }

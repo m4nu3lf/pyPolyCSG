@@ -43,7 +43,7 @@ boost_defines        = [ ]
 boost_compiler_flags = [ ]
 boost_include_dirs   = [ '/usr/local/include' ]
 boost_library_dirs   = [ '/usr/local/lib' ]
-boost_libraries      = [ 'boost_python-mt' ]
+boost_libraries      = [ 'boost_python' ]
 
 # ==========================================================================
 # Setup for Carve ==========================================================

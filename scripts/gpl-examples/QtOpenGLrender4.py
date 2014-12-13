@@ -11,10 +11,8 @@
 # In the original example, the Trolltech logo is constructed in 3D
 # geometry and rendered in a Qt widget using OpenGL.
 # This program incorporates the following changes:
-#  * added property _csgPolygon to GLWidget and Window classes
 #  * makeObject() method: The Trolltech Qt logo geometry is removed,
-#    and is replaced with code to render the pyPolyCSG polygon found
-#    in the _csgPolygon property using flat shading.
+#    and is replaced with geometry constructed using pyPolyCSG. 
 #  * The paingGL() callback has been modified to render the
 #    pyPolyCSG mesh using OpenGL calls.
 #
@@ -31,6 +29,7 @@ import sys
 import math
 from PySide import QtCore, QtGui, QtOpenGL
 
+# DBC: added imports
 import pyPolyCSG as csg
 import numpy 
 
@@ -84,30 +83,20 @@ class Window(QtGui.QWidget):
         self.connect(self.glWidget, changedSignal, slider, QtCore.SLOT("setValue(int)"))
 
         return slider
-    
-    def getCsgPolygon(self):
-        return self.glWidget.getCsgPolygon
-
-    def setCsgPolygon(self, aPolygon):
-        self.glWidget.setCsgPolygon(aPolygon)
-
-    csgPolygon = property(getCsgPolygon, setCsgPolygon)
 
 
 class GLWidget(QtOpenGL.QGLWidget):
     def __init__(self, parent=None):
         QtOpenGL.QGLWidget.__init__(self, parent)
 
-        self._csgPolygon = None
-        self.object = None
-        
+        self.object = (None,None,None)
         self.xRot = 0
         self.yRot = 0
         self.zRot = 0
-        self.scaleFactor = 0.1
 
         self.lastPos = QtCore.QPoint()
 
+        self.trolltechGreen = QtGui.QColor.fromCmykF(0.40, 0.0, 1.0, 0.0)
         self.trolltechPurple = QtGui.QColor.fromCmykF(0.39, 0.39, 0.0, 0.0)
 
     def xRotation(self):
@@ -148,15 +137,16 @@ class GLWidget(QtOpenGL.QGLWidget):
 
     def initializeGL(self):
         self.qglClearColor(self.trolltechPurple.darker())
-        self.object = self.makeObject()
-        GL.glShadeModel(GL.GL_SMOOTH)
-        GL.glEnable(GL.GL_DEPTH_TEST)       
-        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL) # set polygons rendering mode - as lines on both their front and back
-    
+        GL.glShadeModel(GL.GL_FLAT)
+        GL.glEnable(GL.GL_DEPTH_TEST)
+        GL.glEnable(GL.GL_CULL_FACE) 
+        
     def paintGL(self):
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-        GL.glLoadIdentity()
 
+        self.polyBlock = csg.sphere(3, True)
+        # Retrieve the vertices and triangles from the
+        # pyPolyCSG mesh, and condition the numpy arrays
+        # for rendering in the paingGL() callback.
         GL.glMaterial(GL.GL_FRONT_AND_BACK, GL.GL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
         GL.glMaterial(GL.GL_FRONT_AND_BACK, GL.GL_DIFFUSE, [0.8, 0.8, 0.8, 1.0])
         GL.glMaterial(GL.GL_FRONT_AND_BACK, GL.GL_SPECULAR, [1.0, 1.0, 1.0, 1.0])
@@ -169,24 +159,39 @@ class GLWidget(QtOpenGL.QGLWidget):
         GL.glEnable(GL.GL_LIGHT0)
 
         GL.glEnable(GL.GL_NORMALIZE)
+        vertices = self.polyBlock.get_vertices()
+        triangles = self.polyBlock.get_triangles()
+        indices = triangles.astype('uint16').flatten()
+        normals = numpy.array(
+            [numpy.cross(vertices[triangles[i][1]]-vertices[triangles[i][0]],
+                         vertices[triangles[i][2]]-vertices[triangles[i][0]])
+                             for i in xrange(len(triangles))])
         
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+        GL.glLoadIdentity()
         GL.glTranslated(0.0, 0.0, -10.0)
         GL.glRotated(self.xRot / 16.0, 1.0, 0.0, 0.0)
         GL.glRotated(self.yRot / 16.0, 0.0, 1.0, 0.0)
         GL.glRotated(self.zRot / 16.0, 0.0, 0.0, 1.0)
-        GL.glScale(self.scaleFactor,self.scaleFactor,self.scaleFactor)
-
-        if self.object:
-            GL.glCallList(self.object)
+        # DBC: Modifications from hellogl.py below this line.
+        scalefactor = .1
+        GL.glScaled(scalefactor, scalefactor, scalefactor)
         
-	
+        GL.glBegin(GL.GL_TRIANGLES)
+        for i in xrange(0, len(indices)/3):        
+            GL.glNormal3fv(normals[i])
+            for j in range(3):
+                GL.glVertex3fv(vertices[indices[3*i + j]])
+                
+        GL.glEnd()
+        
+        
     def resizeGL(self, width, height):
         side = min(width, height)
-        GL.glViewport((width - side) // 2, (height - side) // 2, side, side)
-        
+        GL.glViewport((width - side) / 2, (height - side) / 2, side, side)
         GL.glMatrixMode(GL.GL_PROJECTION)
         GL.glLoadIdentity()
-        GL.glOrtho(-0.5, +0.5, +0.5, -0.5, 0.01, 100.0)
+        GL.glOrtho(-0.5, +0.5, +0.5, -0.5, 4.0, 15.0)
         GL.glMatrixMode(GL.GL_MODELVIEW)
 
     def mousePressEvent(self, event):
@@ -204,40 +209,7 @@ class GLWidget(QtOpenGL.QGLWidget):
             self.setZRotation(self.zRot + 8 * dx)
 
         self.lastPos = QtCore.QPoint(event.pos())
-
-    def getCsgPolygon(self):
-        return self._csgPolygon
-
-    def setCsgPolygon(self, aPolygon):
-        self._csgPolygon = aPolygon
-        self.object = self.makeObject()
-    
-    def makeObject(self):
-        if self._csgPolygon == None:
-            return
-        vertices = self._csgPolygon.get_vertices()
-        triangles = self._csgPolygon.get_triangles()
-        # Normals are not normalized, since GL_NORMALIZE is enable
-        # in paintGL, so it would be redundant to do it here.
-        normals = numpy.array(
-            [numpy.cross(vertices[triangles[i][1]]-vertices[triangles[i][0]], \
-                         vertices[triangles[i][2]]-vertices[triangles[i][0]]) \
-                             for i in xrange(len(triangles))])
         
-        genList = GL.glGenLists(1)
-        GL.glNewList(genList, GL.GL_COMPILE)
-
-        GL.glBegin(GL.GL_TRIANGLES)
-        for i in range(len(triangles)):        
-            GL.glNormal3fv(normals[i])
-            for j in range(3):
-                GL.glVertex3fv(vertices[triangles[i][j]])
-                
-        GL.glEnd()
-        GL.glEndList()
-
-        return genList
-
     def normalizeAngle(self, angle):
         while angle < 0:
             angle += 360 * 16
@@ -249,16 +221,5 @@ class GLWidget(QtOpenGL.QGLWidget):
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     window = Window()
-    # construct a polygon
-    blk = csg.box(6,2,4,True)
-    cyl = csg.cylinder(1,4,True)
-    blk -= cyl
-    cyl = csg.cylinder(.5,8,True)
-    cyl = cyl.rotate(90,0,0)
-    blk -= cyl
-    cyl = cyl.rotate(0,90,0)
-    blk -= cyl
-    # and display it
-    window.csgPolygon = blk
     window.show()
     sys.exit(app.exec_())

@@ -28,6 +28,7 @@
 # Original work contained a notice of license but no copyright statement.
 
 import sys
+import time
 import math
 from PySide import QtCore, QtGui, QtOpenGL
 
@@ -44,7 +45,6 @@ except ImportError:
                             QtGui.QMessageBox.NoButton)
     sys.exit(1)
 
-
 class Window(QtGui.QWidget):
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
@@ -52,17 +52,28 @@ class Window(QtGui.QWidget):
         self.glWidget = GLWidget()
 
         self.xSlider = self.createSlider(QtCore.SIGNAL("xRotationChanged(int)"),
-                                         self.glWidget.setXRotation)
+                                         self.glWidget.setXRotation,  0,  360 * 16,
+                                         16,  15 * 16,  15 * 16,  QtGui.QSlider.TicksRight)
         self.ySlider = self.createSlider(QtCore.SIGNAL("yRotationChanged(int)"),
-                                         self.glWidget.setYRotation)
+                                         self.glWidget.setYRotation, 0,  360 * 16,
+                                         16,  15 * 16,  15 * 16,  QtGui.QSlider.TicksRight)
         self.zSlider = self.createSlider(QtCore.SIGNAL("zRotationChanged(int)"),
-                                         self.glWidget.setZRotation)
+                                         self.glWidget.setZRotation, 0,  360 * 16,
+                                         16,  15 * 16,  15 * 16,  QtGui.QSlider.TicksRight)
+        self.holeSlider = self.createSlider(QtCore.SIGNAL("objectMoved(int)"),
+                                        self.constructPoly, -300, 300, 
+                                         0.1,  15 * 0.1,  15 * 0.1,  QtGui.QSlider.TicksRight)
+	self.extrudeSlider = self.createSlider(QtCore.SIGNAL("objectExtruded(int)"),
+                                        self.constructPoly, -300, 300, 
+                                         0.1,  15 * 0.1,  15 * 0.1,  QtGui.QSlider.TicksRight)
 
         mainLayout = QtGui.QHBoxLayout()
         mainLayout.addWidget(self.glWidget)
         mainLayout.addWidget(self.xSlider)
         mainLayout.addWidget(self.ySlider)
         mainLayout.addWidget(self.zSlider)
+        mainLayout.addWidget(self.holeSlider)
+        mainLayout.addWidget(self.extrudeSlider)
         self.setLayout(mainLayout)
 
         self.xSlider.setValue(15 * 16)
@@ -70,15 +81,33 @@ class Window(QtGui.QWidget):
         self.zSlider.setValue(0 * 16)
 
         self.setWindowTitle(self.tr("Hello GL"))
+        
+    def constructPoly(self, holeX = 0):
+        start_time = time.time()
+        
+        coords = []
+        coords.append( (0.0, 0.0) )
+        coords.append( (1.0, 0.0) )
+        coords.append( (1.0, 1.0) )
 
-    def createSlider(self, changedSignal, setterSlot):
+        A = csg.extrusion(coords ,holeX )
+        
+        A.rotate(10, 0, 0)
+
+        self.csgPolygon = A
+        self.glWidget.updateGL()
+        end_time = time.time()
+        print("Time: " + str(end_time - start_time))
+
+    def createSlider(self, changedSignal, setterSlot,  rangeMin,  rangeMax,
+                                singleStep,  pageStep, tickInterval,  tickPosition):
         slider = QtGui.QSlider(QtCore.Qt.Vertical)
 
-        slider.setRange(0, 360 * 16)
-        slider.setSingleStep(16)
-        slider.setPageStep(15 * 16)
-        slider.setTickInterval(15 * 16)
-        slider.setTickPosition(QtGui.QSlider.TicksRight)
+        slider.setRange(rangeMin, rangeMax)
+        slider.setSingleStep(singleStep)
+        slider.setPageStep(pageStep)
+        slider.setTickInterval(tickInterval)
+        slider.setTickPosition(tickPosition)
 
         self.glWidget.connect(slider, QtCore.SIGNAL("valueChanged(int)"), setterSlot)
         self.connect(self.glWidget, changedSignal, slider, QtCore.SLOT("setValue(int)"))
@@ -179,7 +208,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         if self.object:
             GL.glCallList(self.object)
         
-	
+        
     def resizeGL(self, width, height):
         side = min(width, height)
         GL.glViewport((width - side) // 2, (height - side) // 2, side, side)
@@ -249,16 +278,6 @@ class GLWidget(QtOpenGL.QGLWidget):
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     window = Window()
-    # construct a polygon
-    blk = csg.box(6,2,4,True)
-    cyl = csg.cylinder(1,4,True)
-    blk -= cyl
-    cyl = csg.cylinder(.5,8,True)
-    cyl = cyl.rotate(90,0,0)
-    blk -= cyl
-    cyl = cyl.rotate(0,90,0)
-    blk -= cyl
-    # and display it
-    window.csgPolygon = blk
+    window.constructPoly()
     window.show()
     sys.exit(app.exec_())
